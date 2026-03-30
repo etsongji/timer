@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나도선생님 활동 전용 타이머</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 가독성 높은 폰트 로드: Do Hyeon (제목/숫자), Noto Sans KR (본문) */
+        @import url('https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f8fafc; /* 밝은 회색 배경으로 눈의 피로 감소 */
+        }
+
+        .title-font {
+            font-family: 'Do Hyeon', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        .timer-display {
+            font-family: 'Do Hyeon', sans-serif;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 4px 4px 0px rgba(0,0,0,0.05);
+        }
+
+        .active-phase {
+            background-color: #2563eb; /* 더 진한 파란색으로 변경 */
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+            border-color: transparent;
+        }
+
+        .progress-bar {
+            transition: width 1s linear;
+        }
+
+        /* 종료 임박 시 깜빡임 효과 */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .urgent-text {
+            color: #dc2626 !important;
+            animation: blink 1s infinite;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-white border-b-2 border-gray-100 p-4 flex justify-between items-center shadow-sm">
+        <h1 class="text-3xl font-bold text-blue-700 title-font">나도선생님 활동 타이머</h1>
+        <div class="flex gap-2">
+            <button id="resetBtn" class="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-all border border-gray-300">전체 초기화</button>
+        </div>
+    </header>
+
+    <!-- 메인 컨텐츠 -->
+    <main class="flex-1 flex flex-col items-center justify-center p-6 gap-6">
+        
+        <!-- 단계 표시기 -->
+        <div id="phaseIndicator" class="flex flex-wrap justify-center gap-3 w-full max-w-5xl">
+            <!-- 단계 버튼들이 여기에 생성됩니다 -->
+        </div>
+
+        <!-- 현재 활동명 -->
+        <div class="text-center mt-4">
+            <h2 id="currentActivityName" class="text-7xl md:text-9xl font-black text-gray-900 title-font tracking-tight">
+                준비 중
+            </h2>
+        </div>
+
+        <!-- 메인 타이머 컨테이너 -->
+        <div id="timerContainer" class="bg-white rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] p-12 md:p-20 flex flex-col items-center w-full max-w-5xl border-2 border-gray-50 transition-all">
+            <!-- 타이머 숫자 -->
+            <div id="timerText" class="timer-display text-[15rem] md:text-[22rem] leading-none font-normal text-gray-900 mb-6">
+                12:00
+            </div>
+            
+            <!-- 진행 바 -->
+            <div class="w-full bg-gray-100 rounded-full h-6 mb-12 overflow-hidden border border-gray-200">
+                <div id="progressBar" class="progress-bar bg-blue-600 h-full w-full"></div>
+            </div>
+
+            <!-- 컨트롤 버튼 -->
+            <div class="grid grid-cols-2 md:flex md:flex-wrap justify-center gap-4 md:gap-6 w-full">
+                <!-- 이전 단계 -->
+                <button id="prevBtn" class="flex flex-col items-center justify-center p-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-3xl transition-all shadow-sm group">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="group-hover:-translate-x-1 transition-transform"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg>
+                    <span class="text-xs font-bold text-gray-500 mt-1">이전</span>
+                </button>
+                
+                <!-- 시작/일시정지 -->
+                <button id="startPauseBtn" class="col-span-2 md:col-span-1 px-12 py-6 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl text-4xl font-bold shadow-xl transform active:scale-95 transition-all min-w-[200px] title-font">
+                    시작
+                </button>
+
+                <!-- +1분 추가 -->
+                <button id="addMinuteBtn" class="px-8 py-6 bg-emerald-500 hover:bg-emerald-600 text-white rounded-3xl text-4xl font-bold shadow-xl transform active:scale-95 transition-all title-font">
+                    +1분
+                </button>
+
+                <!-- 건너뛰기 (현재 중지 후 다음 단계) -->
+                <button id="skipBtn" class="px-8 py-6 bg-amber-500 hover:bg-amber-600 text-white rounded-3xl text-4xl font-bold shadow-xl transform active:scale-95 transition-all title-font">
+                    건너뛰기
+                </button>
+
+                <!-- 다음 단계 -->
+                <button id="nextBtn" class="flex flex-col items-center justify-center p-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-3xl transition-all shadow-sm group">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="group-hover:translate-x-1 transition-transform"><path d="m13 17 5-5-5-5"/><path d="m6 17 5-5-5-5"/></svg>
+                    <span class="text-xs font-bold text-gray-500 mt-1">다음</span>
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 알림 영역 -->
+    <div id="alertBox" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white px-16 py-8 rounded-3xl opacity-0 transition-opacity pointer-events-none text-5xl font-bold z-50 shadow-2xl title-font">
+        시간 종료!
+    </div>
+
+    <script>
+        const PHASES = [
+            { name: '전문가활동', duration: 12 * 60 },
+            { name: 'A파트 원모둠', duration: 6 * 60 },
+            { name: 'B파트 원모둠', duration: 6 * 60 },
+            { name: 'C파트 원모둠', duration: 6 * 60 },
+            { name: 'D파트 원모둠', duration: 6 * 60 }
+        ];
+
+        let currentPhaseIndex = 0;
+        let timeLeft = PHASES[0].duration;
+        let isRunning = false;
+        let timerInterval = null;
+
+        const currentActivityName = document.getElementById('currentActivityName');
+        const timerText = document.getElementById('timerText');
+        const progressBar = document.getElementById('progressBar');
+        const startPauseBtn = document.getElementById('startPauseBtn');
+        const addMinuteBtn = document.getElementById('addMinuteBtn');
+        const skipBtn = document.getElementById('skipBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const phaseIndicator = document.getElementById('phaseIndicator');
+        const timerContainer = document.getElementById('timerContainer');
+        const alertBox = document.getElementById('alertBox');
+
+        function initPhaseButtons() {
+            phaseIndicator.innerHTML = '';
+            PHASES.forEach((phase, index) => {
+                const btn = document.createElement('button');
+                btn.className = `px-6 py-3 rounded-2xl font-bold border-2 transition-all text-xl ${index === currentPhaseIndex ? 'active-phase' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'}`;
+                btn.innerText = phase.name.replace(' 원모둠', '');
+                btn.onclick = () => jumpToPhase(index);
+                phaseIndicator.appendChild(btn);
+            });
+        }
+
+        function updateDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            timerText.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            currentActivityName.innerText = PHASES[currentPhaseIndex].name;
+            
+            const total = PHASES[currentPhaseIndex].duration;
+            const percentage = (timeLeft / total) * 100;
+            progressBar.style.width = `${percentage}%`;
+
+            // 1분 미만 긴급 표시
+            if (timeLeft <= 60 && timeLeft > 0) {
+                timerText.classList.add('urgent-text');
+                progressBar.classList.replace('bg-blue-600', 'bg-red-500');
+            } else {
+                timerText.classList.remove('urgent-text');
+                if (progressBar.classList.contains('bg-red-500')) {
+                    progressBar.classList.replace('bg-red-500', 'bg-blue-600');
+                }
+            }
+
+            const buttons = phaseIndicator.querySelectorAll('button');
+            buttons.forEach((btn, idx) => {
+                if (idx === currentPhaseIndex) {
+                    btn.classList.add('active-phase');
+                    btn.classList.remove('bg-white', 'text-gray-500', 'border-gray-200');
+                } else {
+                    btn.classList.remove('active-phase');
+                    btn.classList.add('bg-white', 'text-gray-500', 'border-gray-200');
+                }
+            });
+        }
+
+        function toggleTimer() {
+            if (isRunning) pauseTimer();
+            else startTimer();
+        }
+
+        function startTimer() {
+            if (isRunning) return;
+            isRunning = true;
+            startPauseBtn.innerText = '일시정지';
+            startPauseBtn.classList.replace('bg-blue-600', 'bg-orange-500');
+            
+            timerInterval = setInterval(() => {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    updateDisplay();
+                } else {
+                    handleTimeUp();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            isRunning = false;
+            clearInterval(timerInterval);
+            startPauseBtn.innerText = '시작';
+            if (startPauseBtn.classList.contains('bg-orange-500')) {
+                startPauseBtn.classList.replace('bg-orange-500', 'bg-blue-600');
+            }
+        }
+
+        function handleTimeUp() {
+            pauseTimer();
+            showAlert();
+            playBeep();
+            
+            if (currentPhaseIndex < PHASES.length - 1) {
+                setTimeout(() => {
+                    nextPhase();
+                }, 3000);
+            }
+        }
+
+        function showAlert() {
+            alertBox.style.opacity = '1';
+            setTimeout(() => {
+                alertBox.style.opacity = '0';
+            }, 3000);
+        }
+
+        function playBeep() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.value = 440;
+                gain.gain.setValueAtTime(0, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(1, ctx.currentTime + 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 1.5);
+            } catch (e) {}
+        }
+
+        function addMinute() {
+            timeLeft += 60;
+            updateDisplay();
+        }
+
+        function jumpToPhase(index) {
+            pauseTimer();
+            currentPhaseIndex = index;
+            timeLeft = PHASES[currentPhaseIndex].duration;
+            updateDisplay();
+        }
+
+        function nextPhase() {
+            if (currentPhaseIndex < PHASES.length - 1) {
+                jumpToPhase(currentPhaseIndex + 1);
+            }
+        }
+
+        function prevPhase() {
+            if (currentPhaseIndex > 0) {
+                jumpToPhase(currentPhaseIndex - 1);
+            }
+        }
+
+        // 중간에 중지하고 넘어가는 기능
+        function skipCurrentPhase() {
+            if (currentPhaseIndex < PHASES.length - 1) {
+                // 현재 타이머 멈춤
+                pauseTimer();
+                // 다음 단계로 이동
+                nextPhase();
+            } else {
+                // 마지막 단계인 경우 종료 처리
+                pauseTimer();
+                timeLeft = 0;
+                updateDisplay();
+                showAlert();
+            }
+        }
+
+        function resetAll() {
+            if (confirm('전체 활동을 초기화할까요?')) jumpToPhase(0);
+        }
+
+        startPauseBtn.onclick = toggleTimer;
+        addMinuteBtn.onclick = addMinute;
+        skipBtn.onclick = skipCurrentPhase;
+        prevBtn.onclick = prevPhase;
+        nextBtn.onclick = nextPhase;
+        resetBtn.onclick = resetAll;
+
+        initPhaseButtons();
+        updateDisplay();
+    </script>
+</body>
+</html>
